@@ -4,16 +4,8 @@ import (
 	"encoding/binary"
 	"log"
 	"net"
-	"time"
+	"strings"
 )
-
-func Blah() int {
-	return 1
-}
-
-func logEndTransmission(callsign string, startTime time.Time, loss string) {
-	log.Printf("END TX: %s transmitted for %v with a %s BER", callsign, time.Since(startTime), loss)
-}
 
 func findCall(b []byte) string {
 	if b[0] == 0 {
@@ -29,7 +21,7 @@ func findCall(b []byte) string {
 	if findZero == -1 {
 		return "UNKNOWN"
 	}
-	return string(b[0:findZero])
+	return strings.Trim(string(b[0:findZero]), " ")
 }
 
 func RxUSRP(config *Config) {
@@ -48,13 +40,11 @@ func RxUSRP(config *Config) {
 	var buf [1048]byte
 
 	//receive loop
-	var lastKeyup uint32
-	var startTime time.Time
+	//var lastKeyup uint32
 	var callsign string
-	var loss string = "0.00%"
 	var lastSeq uint32
 
-	transmitEnable := true
+	var t Transmission // holds the transmission stuff while active
 	for {
 		n, err := udpConn.Read(buf[0:])
 		if err != nil {
@@ -83,29 +73,29 @@ func RxUSRP(config *Config) {
 		switch usrpType {
 		case USRP_TYPE_VOICE:
 			//log.Println("voice")
-			//TODO do something with the audio
-			if keyup != lastKeyup {
-				startTime = time.Now()
-			}
+			t.Audio.Write(audio) //append audio to the transmission buffer
+			//if keyup != lastKeyup {
+			// do nothing for right now
+			//}
 			if keyup == 0 {
-				logEndTransmission(callsign, startTime, loss)
-				transmitEnable = true
+				t.EndTransmission()
 			}
-			lastKeyup = keyup
+			//lastKeyup = keyup
 		case USRP_TYPE_TEXT:
-			log.Println("USRP TEXT", int(audio[0]))
+			//log.Println("USRP TEXT", int(audio[0]))
 			if audio[0] == TLV_TAG_SET_INFO {
-				if !transmitEnable {
-					logEndTransmission(callsign, startTime, loss)
-				}
+				// disabled to see if this matters
+				//if !transmitEnable {
+				//	t.EndTransmission()
+				//}
 				callsign = findCall(audio[14:50])
-				log.Println("Begin TX:", callsign)
-				transmitEnable = false
+				t = NewTransmission(config.Group, callsign) //create a new transmission
+				//transmitEnable = false
 			}
 		case USRP_TYPE_PING:
 			if (lastSeq + 1) == seq {
 				log.Println("missed EOT")
-				logEndTransmission(callsign, startTime, loss)
+				t.EndTransmission()
 			}
 			lastSeq = seq
 		default:

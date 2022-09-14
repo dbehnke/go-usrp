@@ -6,6 +6,7 @@ import (
 
 func main() {
 	c := usrp.Config{
+		Group:  "testing",
 		RXPort: ":57771",
 		TXPort: ":57772",
 	}
