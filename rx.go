@@ -68,7 +68,7 @@ func RxUSRP(config *Config) {
 		usrpType := binary.LittleEndian.Uint32(buf[20:24])
 		//mpxid
 		//reserved
-		audio := buf[32:]
+		audio := buf[32:n]
 		//binary.BigEndian.Uint16(buf)
 		switch usrpType {
 		case USRP_TYPE_VOICE:
